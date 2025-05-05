@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>遊戲UID共享系統</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <style>
+        body {
+            font-family: 'Microsoft JhengHei', Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f0f2f5;
+            color: #333;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .card {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        h1 {
+            color: #4a6fa5;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #4a6fa5;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #385d8a;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        .stats-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .stat-card {
+            flex: 1;
+            min-width: 200px;
+            padding: 15px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .stat-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #4a6fa5;
+        }
+        .stat-content {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .auth-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .auth-card {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            width: 350px;
+            text-align: center;
+        }
+        .error-message {
+            color: #e53935;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+        .admin-button {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background-color: #4a6fa5;
+            color: white;
+            border: none;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+        .admin-panel {
+            margin-top: 20px;
+        }
+        .tab {
+            display: none;
+        }
+        .tab-active {
+            display: block;
+        }
+        .tab-buttons {
+            display: flex;
+            margin-bottom: 15px;
+        }
+        .tab-button {
+            padding: 10px 15px;
+            background-color: #f0f2f5;
+            border: none;
+            margin-right: 5px;
+            cursor: pointer;
+        }
+        .tab-button.active {
+            background-color: #4a6fa5;
+            color: white;
+        }
+        .delete-btn {
+            background-color: #e53935;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .delete-btn:hover {
+            background-color: #c62828;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.7);
+            z-index: 1001;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            width: 350px;
+        }
+    </style>
+</head>
+<body>
+    <!-- 主要容器 -->
+    <div class="container">
+        <h1>遊戲UID共享系統</h1>
+        
+        <!-- 表單卡片 -->
+        <div class="card">
+            <h2>新增資料</h2>
+            <form id="uidForm">
+                <div class="form-group">
+                    <label for="gameUID">遊戲 UID (Game UID)</label>
+                    <input type="text" id="gameUID" name="gameUID" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="gameID">遊戲暱稱 (Game ID)</label>
+                    <input type="text" id="gameID" name="gameID" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="userNumber">編號 (Your Number)</label>
+                    <select id="userNumber" name="userNumber" required>
+                        <option value="">請選擇編號</option>
+                        <!-- 下拉選單選項將由JS生成 -->
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="exclusiveWeapon">專屬武器 (Exclusive Weapons)</label>
+                    <select id="exclusiveWeapon" name="exclusiveWeapon" required>
+                        <option value="">請選擇武器</option>
+                        <!-- 下拉選單選項將由JS生成 -->
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="willChoose">必選中想玩兵種嗎? (Will you definitely choose it?)</label>
+                    <select id="willChoose" name="willChoose" required>
+                        <option value="">請選擇</option>
+                        <option value="YES">YES</option>
+                        <option value="NO">NO</option>
+                    </select>
+                </div>
+                
+                <button type="submit">提交資料</button>
+            </form>
+        </div>
+        
+        <!-- 統計卡片 -->
+        <div class="card">
+            <h2>武器使用狀況</h2>
+            <div class="stats-container">
+                <div class="stat-card">
+                    <div class="stat-title">A 組使用統計</div>
+                    <div class="stat-content" id="statsA"></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-title">B 組使用統計</div>
+                    <div class="stat-content" id="statsB"></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-title">C 組使用統計</div>
+                    <div class="stat-content" id="statsC"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 資料表格卡片 -->
+        <div class="card">
+            <h2>整合列表</h2>
+            <div style="overflow-x: auto;">
+                <table id="dataTable">
+                    <thead>
+                        <tr>
+                            <th>編號</th>
+                            <th>遊戲 UID</th>
+                            <th>遊戲暱稱</th>
+                            <th>專屬武器</th>
+                            <th>必選中</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- 表格內容將由JS生成 -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 驗證覆蓋層 -->
+    <div class="auth-overlay" id="authOverlay">
+        <div class="auth-card">
+            <h2>請輸入密碼</h2>
+            <div class="form-group">
+                <input type="password" id="authPassword" placeholder="請輸入訪問密碼">
+            </div>
+            <button id="authSubmit">確認</button>
+            <div class="error-message" id="authError"></div>
+        </div>
+    </div>
+    
+    <!-- 管理員按鈕 -->
+    <div class="admin-button" id="adminButton">
+        <span>⚙️</span>
+    </div>
+    
+    <!-- 管理員面板覆蓋層 -->
+    <div class="auth-overlay" id="adminAuthOverlay" style="display: none;">
+        <div class="auth-card">
+            <h2>管理員登入</h2>
+            <div class="form-group">
+                <input type="password" id="adminPassword" placeholder="請輸入管理員密碼">
+            </div>
+            <button id="adminAuthSubmit">登入</button>
+            <div class="error-message" id="adminAuthError"></div>
+        </div>
+    </div>
+    
+    <!-- 管理員面板 -->
+    <div class="modal" id="adminPanel">
+        <div class="modal-content">
+            <h2>管理員面板</h2>
+            
+            <div class="tab-buttons">
+                <button class="tab-button active" onclick="showTab('passwordTab')">修改密碼</button>
+                <button class="tab-button" onclick="showTab('dataTab')">數據管理</button>
+            </div>
+            
+            <div id="passwordTab" class="tab tab-active">
+                <div class="form-group">
+                    <label for="sitePassword">網站訪問密碼</label>
+                    <input type="text" id="sitePassword">
+                </div>
+                
+                <div class="form-group">
+                    <label for="deletePassword">刪除密碼</label>
+                    <input type="text" id="deletePassword">
+                </div>
+                
+                <div class="form-group">
+                    <label for="adminPanelPassword">管理員密碼</label>
+                    <input type="text" id="adminPanelPassword">
+                </div>
+                
+                <button id="savePasswordsBtn">保存密碼設置</button>
+            </div>
+            
+            <div id="dataTab" class="tab">
+                <button id="clearAllDataBtn">清除所有數據</button>
+                <p>警告：此操作不可逆</p>
+            </div>
+            
+            <button onclick="closeAdminPanel()">關閉</button>
+        </div>
+    </div>
+    
+    <!-- 刪除確認對話框 -->
+    <div class="modal" id="deleteModal">
+        <div class="modal-content">
+            <h2>確認刪除</h2>
+            <p>請輸入刪除密碼以確認刪除這條記錄</p>
+            <div class="form-group">
+                <input type="password" id="confirmDeletePassword" placeholder="請輸入刪除密碼">
+            </div>
+            <div class="error-message" id="deleteError"></div>
+            <div style="display: flex; justify-content: space-between; margin-top: 15px;">
+                <button id="confirmDeleteBtn">確認刪除</button>
+                <button id="cancelDeleteBtn">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 初始化數據及全局變數
+        let userData = [];
+        let currentDeleteId = null;
+        
+        // 默認密碼設置
+        let passwords = {
+            site: "0506",
+            delete: "8877",
+            admin: "password55668877"
+        };
+        
+        // 武器選項列表
+        const weaponOptions = [
+            "我是地鼠號 I'm excavator",
+            "重盾 Heavy shield",
+            "槍盾 Spear shield",
+            "劍盾 SNS",
+            "錘盾 Hammer shield",
+            "刀盾 saber&shield Soldier",
+            "長槍 Longsperman",
+            "長矛 lancer",
+            "長戈 Dagger-axe Soldier",
+            "陌刀 Modao",
+            "長劍 Long Swordsman",
+            "雙槍 Twin spear",
+            "長弓 Long bow",
+            "連弩 Crossbow man",
+            "毒弓 Toxibowman",
+            "獵人 Hunter",
+            "重弩 improved crossbowman",
+            "火弓 Fire Bowman",
+            "劍騎 fight Sword cav",
+            "槍騎 fight Spear Cavalry",
+            "刀騎 fight Broadsword cav",
+            "斧騎 fight Axe cav",
+            "重騎 Heavy cav",
+            "弓騎 Bow cav",
+            "没想法 None sense what u wnat to play"
+        ];
+        
+        // 所有DOM元素初始化後執行
+        document.addEventListener('DOMContentLoaded', function() {
+            // 生成編號選項
+            const userNumberSelect = document.getElementById('userNumber');
+            for (let prefix of ['A', 'B', 'C']) {
+                for (let i = 1; i <= 40; i++) {
+                    const option = document.createElement('option');
+                    option.value = `${prefix}${i}`;
+                    option.textContent = `${prefix}${i}`;
+                    userNumberSelect.appendChild(option);
+                }
+            }
+            
+            // 生成武器選項
+            const weaponSelect = document.getElementById('exclusiveWeapon');
+            weaponOptions.forEach(weapon => {
+                const option = document.createElement('option');
+                option.value = weapon;
+                option.textContent = weapon;
+                weaponSelect.appendChild(option);
+            });
+            
+            // 從localStorage加載數據
+            loadData();
+            
+            // 初始化事件監聽器
+            initEventListeners();
+            
+            // 顯示身份驗證覆蓋層
+            showAuthOverlay();
+        });
+        
+        // 初始化所有事件監聽器
+        function initEventListeners() {
+            // 表單提交事件
+            document.getElementById('uidForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                addNewEntry();
+            });
+            
+            // 身份驗證提交事件
+            document.getElementById('authSubmit').addEventListener('click', function() {
+                validateSiteAccess();
+            });
+            document.getElementById('authPassword').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    validateSiteAccess();
+                }
+            });
+            
+            // 管理員按鈕事件
+            document.getElementById('adminButton').addEventListener('click', function() {
+                document.getElementById('adminAuthOverlay').style.display = 'flex';
+            });
+            
+            // 管理員登入驗證
+            document.getElementById('adminAuthSubmit').addEventListener('click', function() {
+                validateAdminAccess();
+            });
+            document.getElementById('adminPassword').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    validateAdminAccess();
+                }
+            });
+            
+            // 保存密碼設置按鈕
+            document.getElementById('savePasswordsBtn').addEventListener('click', function() {
+                savePasswordSettings();
+            });
+            
+            // 清除所有數據按鈕
+            document.getElementById('clearAllDataBtn').addEventListener('click', function() {
+                if (confirm('確定要清除所有數據嗎？此操作不可逆！')) {
+                    userData = [];
+                    saveData();
+                    updateUI();
+                    alert('所有數據已清除！');
+                }
+            });
+            
+            // 刪除對話框按鈕
+            document.getElementById('cancelDeleteBtn').addEventListener('click', function() {
+                closeDeleteModal();
+            });
+            
+            document.getElementById('confirmDeleteBtn').addEventListener('click', function() {
+                const password = document.getElementById('confirmDeletePassword').value;
+                if (password === passwords.delete) {
+                    deleteEntry(currentDeleteId);
+                    closeDeleteModal();
+                } else {
+                    document.getElementById('deleteError').textContent = '密碼錯誤！';
+                }
+            });
+        }
+        
+        // 加載數據
+        function loadData() {
+            // 嘗試從localStorage載入數據
+            const savedData = localStorage.getItem('gameUIDData');
+            if (savedData) {
+                userData = JSON.parse(savedData);
+            }
+            
+            // 嘗試從localStorage載入密碼設置
+            const savedPasswords = localStorage.getItem('gameUIDPasswords');
+            if (savedPasswords) {
+                passwords = JSON.parse(savedPasswords);
+            }
+            
+            updateUI();
+        }
+        
+        // 保存數據
+        function saveData() {
+            localStorage.setItem('gameUIDData', JSON.stringify(userData));
+        }
+        
+        // 保存密碼設置
+        function savePasswordSettings() {
+            const sitePassword = document.getElementById('sitePassword').value;
+            const deletePassword = document.getElementById('deletePassword').value;
+            const adminPassword = document.getElementById('adminPanelPassword').value;
+            
+            if (sitePassword) passwords.site = sitePassword;
+            if (deletePassword) passwords.delete = deletePassword;
+            if (adminPassword) passwords.admin = adminPassword;
+            
+            localStorage.setItem('gameUIDPasswords', JSON.stringify(passwords));
+            alert('密碼設置已保存！');
+        }
+        
+        // 添加新條目
+        function addNewEntry() {
+            const gameUID = document.getElementById('gameUID').value;
+            const gameID = document.getElementById('gameID').value;
+            const userNumber = document.getElementById('userNumber').value;
+            const exclusiveWeapon = document.getElementById('exclusiveWeapon').value;
+            const willChoose = document.getElementById('willChoose').value;
+            
+            // 檢查編號是否已存在
+            const existingEntry = userData.find(entry => entry.userNumber === userNumber);
+            if (existingEntry) {
+                if (confirm('此編號已存在，是否要覆蓋現有數據？')) {
+                    // 更新現有條目
+                    existingEntry.gameUID = gameUID;
+                    existingEntry.gameID = gameID;
+                    existingEntry.exclusiveWeapon = exclusiveWeapon;
+                    existingEntry.willChoose = willChoose;
+                } else {
+                    return;
+                }
+            } else {
+                // 添加新條目
+                const newEntry = {
+                    id: Date.now().toString(), // 使用時間戳作為唯一ID
+                    gameUID,
+                    gameID,
+                    userNumber,
+                    exclusiveWeapon,
+                    willChoose
+                };
+                userData.push(newEntry);
+            }
+            
+            // 保存數據並更新UI
+            saveData();
+            updateUI();
+            
+            // 重置表單
+            document.getElementById('uidForm').reset();
+            
+            alert('數據已成功提交！');
+        }
+        
+        // 刪除條目
+        function deleteEntry(id) {
+            userData = userData.filter(entry => entry.id !== id);
+            saveData();
+            updateUI();
+        }
+        
+        // 打開刪除確認對話框
+        function openDeleteModal(id) {
+            currentDeleteId = id;
+            document.getElementById('confirmDeletePassword').value = '';
+            document.getElementById('deleteError').textContent = '';
+            document.getElementById('deleteModal').style.display = 'flex';
+        }
+        
+        // 關閉刪除確認對話框
+        function closeDeleteModal() {
+            document.getElementById('deleteModal').style.display = 'none';
+            currentDeleteId = null;
+        }
+        
+        // 更新UI
+        function updateUI() {
+            updateTable();
+            updateStats();
+        }
+        
+        // 更新表格
+        function updateTable() {
+            const tableBody = document.querySelector('#dataTable tbody');
+            tableBody.innerHTML = '';
+            
+            // 按編號排序
+            const sortedData = [...userData].sort((a, b) => {
+                return a.userNumber.localeCompare(b.userNumber, undefined, { numeric: true, sensitivity: 'base' });
+            });
+            
+            sortedData.forEach(entry => {
+                const row = document.createElement('tr');
+                
+                // 編號
+                const numberCell = document.createElement('td');
+                numberCell.textContent = entry.userNumber;
+                row.appendChild(numberCell);
+                
+                // 遊戲 UID
+                const uidCell = document.createElement('td');
+                uidCell.textContent = entry.gameUID;
+                row.appendChild(uidCell);
+                
+                // 遊戲暱稱
+                const idCell = document.createElement('td');
+                idCell.textContent = entry.gameID;
+                row.appendChild(idCell);
+                
+                // 專屬武器
+                const weaponCell = document.createElement('td');
+                weaponCell.textContent = entry.exclusiveWeapon;
+                row.appendChild(weaponCell);
+                
+                // 必選中
+                const chooseCell = document.createElement('td');
+                chooseCell.textContent = entry.willChoose;
+                row.appendChild(chooseCell);
+                
+                // 操作
+                const actionCell = document.createElement('td');
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'delete-btn';
+                deleteBtn.textContent = '刪除';
+                deleteBtn.addEventListener('click', function() {
+                    openDeleteModal(entry.id);
+                });
+                actionCell.appendChild(deleteBtn);
+                row.appendChild(actionCell);
+                
+                tableBody.appendChild(row);
+            });
+        }
+        
+        // 更新統計數據
+        function updateStats() {
+            const groups = ['A', 'B', 'C'];
+            
+            groups.forEach(group => {
+                const statsElement = document.getElementById(`stats${group}`);
+                statsElement.innerHTML = '';
+                
+                // 計算每種武器的使用次數
+                const weaponCount = {};
+                userData.forEach(entry => {
+                    if (entry.userNumber.startsWith(group)) {
+                        if (!weaponCount[entry.exclusiveWeapon]) {
+                            weaponCount[entry.exclusiveWeapon] = 0;
+                        }
+                        weaponCount[entry.exclusiveWeapon]++;
+                    }
+                });
+                
+                // 按使用次數降序排序
+                const sortedWeapons = Object.entries(weaponCount)
+                    .sort((a, b) => b[1] - a[1])
+                    .map(([weapon, count]) => `${weapon}: ${count}`);
+                
+                // 顯示統計結果
+                if (sortedWeapons.length > 0) {
+                    const statsList = document.createElement('ul');
+                    sortedWeapons.forEach(stat => {
+                        const listItem = document.createElement('li');
+                        listItem.textContent = stat;
+                        statsList.appendChild(listItem);
+                    });
+                    statsElement.appendChild(statsList);
+                } else {
+                    statsElement.textContent = '暫無數據';
+                }
+            });
+        }
+        
+        // 顯示網站訪問驗證覆蓋層
+        function showAuthOverlay() {
+            document.getElementById('authOverlay').style.display = 'flex';
+            document.getElementById('authPassword').focus();
+        }
+        
+        // 驗證網站訪問密碼
+        function validateSiteAccess() {
+            const password = document.getElementById('authPassword').value;
+            if (password === passwords.site) {
+                document.getElementById('authOverlay').style.display = 'none';
+            } else {
+                document.getElementById('authError').textContent = '密碼錯誤！';
+            }
+        }
+        
+        // 驗證管理員密碼
+        function validateAdminAccess() {
+            const password = document.getElementById('adminPassword').value;
+            if (password === passwords.admin) {
+                document.getElementById('adminAuthOverlay').style.display = 'none';
+                openAdminPanel();
+            } else {
+                document.getElementById('adminAuthError').textContent = '管理員密碼錯誤！';
+            }
+        }
+        
+        // 打開管理員面板
+        function openAdminPanel() {
+            // 填充當前密碼設置
+            document.getElementById('sitePassword').value = passwords.site;
+            document.getElementById('deletePassword').value = passwords.delete;
+            document.getElementById('adminPanelPassword').value = passwords.admin;
+            
+            // 顯示面板
+            document.getElementById('adminPanel').style.display = 'flex';
+        }
+        
+        // 關閉管理員面板
+        function closeAdminPanel() {
+            document.getElementById('adminPanel').style.display = 'none';
+        }
+        
+        // 切換管理員面板中的標籤
+        function showTab(tabId) {
+            // 隱藏所有標籤
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('tab-active');
+            });
+            
+            // 重置所有標籤按鈕
+            document.querySelectorAll('.tab-button').forEach(button => {
+                button.classList.remove('active');
+            });
+            
+            // 顯示選中的標籤
+            document.getElementById(tabId).classList.add('tab-active');
+            
+            // 激活相應的按鈕
+            const buttons = document.querySelectorAll('.tab-button');
+            for (let button of buttons) {
+                if (button.getAttribute('onclick').includes(tabId)) {
+                    button.classList.add('active');
+                    break;
+                }
+            }
+        }
+    </script>
+</body>
+</html>
